@@ -1,0 +1,32 @@
+seed: 42
+dataset:
+  primary: ChestMNIST
+  primary_root: data/medmnist
+  multimodal: OpenI
+  openi_csv: data/openi_metadata.csv
+image_size: 64
+batch_size: 16
+num_workers: 0
+threshold: 0.5
+training:
+  optimizer: AdamW
+  lr: 0.0001
+  weight_decay: 0.0001
+  class_balance: pos_weight
+  early_stopping_patience: 5
+  selection_metric: average_precision_macro
+labels:
+  - Atelectasis
+  - Cardiomegaly
+  - Effusion
+  - Infiltration
+  - Mass
+  - Nodule
+  - Pneumonia
+  - Pneumothorax
+  - Consolidation
+  - Edema
+  - Emphysema
+  - Fibrosis
+  - Pleural_Thickening
+  - Hernia
