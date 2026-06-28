@@ -1,6 +1,6 @@
 # Projet Deep Learning - Triage radiologique
 
-Ce dépôt répond au cahier des charges du projet : classification multi-label de radiographies thoraciques, comparaison de trois architectures profondes, détection d'anomalies, preuve de concept multimodale image + texte, suivi MLflow et démonstrateur Streamlit.
+Ce dépôt répond au cahier des charges du projet : classification multi-label de radiographies thoraciques, comparaison de trois architectures profondes, détection d'anomalies par AE/VAE, preuve de concept multimodale image + texte, suivi MLflow et démonstrateur Streamlit.
 
 ## Datasets
 
@@ -100,9 +100,17 @@ Une fois `data/openi_metadata.csv` créé, le fichier Parquet peut être supprim
 
 ```bash
 python src/training/train_autoencoder_chestmnist.py --epochs 5 --image_size 64
+python src/training/train_vae_chestmnist.py --epochs 5 --image_size 64
 ```
 
-L'autoencoder est entraîné uniquement sur les images du split train sans pathologie. Le seuil correspond au percentile 95 des erreurs de reconstruction des images normales de validation.
+L'autoencoder et le VAE sont entraînés uniquement sur les images du split train sans pathologie. Le seuil correspond au percentile 95 des erreurs de reconstruction des images normales de validation.
+
+Sorties principales :
+- `checkpoints/autoencoder_chestmnist.pt` : autoencoder convolutionnel déterministe ;
+- `checkpoints/vae_chestmnist.pt` : autoencoder variationnel avec espace latent probabiliste ;
+- `outputs/chestmnist_anomaly/` et `outputs/chestmnist_vae/` : scores, distributions et reconstructions.
+
+Le VAE ajoute une régularisation KL dans l'espace latent. Dans le rapport, il peut être comparé à l'AE avec les métriques `roc_auc`, `average_precision`, `f1`, `precision`, `recall` et le seuil appris.
 
 ## Multimodalité OpenI
 
@@ -127,6 +135,7 @@ Puis ouvrir `http://127.0.0.1:5000`.
 
 Expériences créées :
 - `chestmnist_supervised` ;
+- `chestmnist_anomaly` ;
 - `openi_supervised` ;
 - `openi_anomaly` ;
 - `openi_multimodal`.
@@ -141,7 +150,7 @@ Fonctionnalités :
 - chargement d'une radiographie ;
 - choix d'un checkpoint supervisé ;
 - prédictions multi-label avec seuil appris ;
-- score d'anomalie par autoencoder ;
+- score d'anomalie par autoencoder ou VAE ;
 - prédiction fusion image + texte si le modèle multimodal est entraîné.
 
 ## Exécution complète
@@ -161,5 +170,7 @@ Windows :
 Les scripts lancent d'abord ChestMNIST. Les étapes OpenI sont exécutées si `data/openi_metadata.csv` existe; elles sont sinon ignorées.
 
 ## Rapport
+
+Le rapport final est disponible dans `reports/Rapport_Deep_Learning_Tri_Radiologique.pdf`.
 
 Le plan détaillé est dans `reports/rapport_template.md`. Il suit l'ordre imposé par le PDF : problème, données, EDA, préparation, modélisation supervisée, anomalie, multimodalité, évaluation, MLflow, démonstrateur, analyse critique, conclusion.

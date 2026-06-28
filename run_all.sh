@@ -6,6 +6,7 @@ python src/training/train_supervised_chestmnist.py --model simple_cnn --epochs 3
 python src/training/train_supervised_chestmnist.py --model resnet18 --epochs 5 --image_size 64
 python src/training/train_supervised_chestmnist.py --model vit --epochs 3 --image_size 64 --no-pretrained
 python src/training/train_autoencoder_chestmnist.py --epochs 5 --image_size 64
+python src/training/train_vae_chestmnist.py --epochs 5 --image_size 64
 
 if [ -f data/openi_metadata.csv ]; then
   python src/multimodal/train_text_openi.py --epochs 2

@@ -16,7 +16,7 @@ from transformers import AutoTokenizer
 
 sys.path.append(PROJECT_ROOT)
 
-from src.models.autoencoder import ConvAutoEncoder
+from src.models.autoencoder import ConvAutoEncoder, ConvVAE
 from src.models.multimodal import MultiModalNet
 from src.models.supervised import build_model
 from src.utils.common import LABELS, denormalize_imagenet, get_device
@@ -50,6 +50,18 @@ def available_supervised_checkpoints():
     ]
     ordered = [p for p in preferred if p.exists()]
     ordered += [p for p in checkpoints if p not in ordered]
+    return ordered
+
+
+def available_anomaly_checkpoints():
+    candidates = [
+        Path("checkpoints/autoencoder_chestmnist.pt"),
+        Path("checkpoints/vae_chestmnist.pt"),
+        Path("checkpoints/autoencoder_openi.pt"),
+    ]
+    ordered = [p for p in candidates if p.exists()]
+    remaining = sorted(Path("checkpoints").glob("*autoencoder*.pt")) + sorted(Path("checkpoints").glob("*vae*.pt"))
+    ordered += [p for p in remaining if p not in ordered]
     return ordered
 
 
@@ -154,16 +166,16 @@ def load_supervised(path):
 
 
 @st.cache_resource
-def load_autoencoder():
-    candidates = [
-        Path("checkpoints/autoencoder_chestmnist.pt"),
-        Path("checkpoints/autoencoder_openi.pt"),
-    ]
-    path = next((candidate for candidate in candidates if candidate.exists()), None)
-    if path is None:
-        return None, None
+def load_anomaly_model(path):
     ck = torch.load(path, map_location=device)
-    model = ConvAutoEncoder().to(device)
+    model_type = ck.get("model_type", "vae" if "vae" in Path(path).name.lower() else "autoencoder")
+    if model_type == "vae":
+        model = ConvVAE(
+            image_size=int(ck.get("image_size", 64)),
+            latent_dim=int(ck.get("latent_dim", 128)),
+        ).to(device)
+    else:
+        model = ConvAutoEncoder().to(device)
     model.load_state_dict(ck["model"])
     model.eval()
     return model, ck
@@ -195,13 +207,21 @@ def load_multimodal():
 
 
 checkpoints = available_supervised_checkpoints()
+anomaly_checkpoints = available_anomaly_checkpoints()
 selected_checkpoint = None
+selected_anomaly_checkpoint = None
 with st.sidebar:
     st.header("Modèles")
     if checkpoints:
         selected_checkpoint = st.selectbox("Checkpoint supervisé", checkpoints, format_func=lambda p: p.name)
     else:
         st.warning("Aucun checkpoint supervisé trouvé.")
+    if anomaly_checkpoints:
+        selected_anomaly_checkpoint = st.selectbox(
+            "Checkpoint anomalie",
+            anomaly_checkpoints,
+            format_func=lambda p: p.name,
+        )
 
 uploaded = st.file_uploader("Radiographie thoracique", type=["png", "jpg", "jpeg"])
 uploaded_image = Image.open(uploaded).convert("RGB") if uploaded is not None else None
@@ -243,26 +263,29 @@ if uploaded:
             )
             st.bar_chart(pred_df.set_index("pathologie")["probabilite"])
 
-        ae, ae_ck = load_autoencoder()
         st.subheader("Détection d'anomalie")
-        if ae is None:
+        if selected_anomaly_checkpoint is None:
             st.info(
-                "Aucun autoencoder trouvé. Lance "
-                "`python src/training/train_autoencoder_chestmnist.py --epochs 5 --image_size 64`."
+                "Aucun modèle d'anomalie trouvé. Lance "
+                "`python src/training/train_autoencoder_chestmnist.py --epochs 5 --image_size 64` "
+                "ou `python src/training/train_vae_chestmnist.py --epochs 5 --image_size 64`."
             )
         else:
-            ae_image_size = int(ae_ck.get("image_size", image_size))
-            ae_x = image_transform(ae_image_size)(image).unsqueeze(0).to(device)
-            anomaly_threshold = ae_ck.get("threshold")
+            anomaly_model, anomaly_ck = load_anomaly_model(str(selected_anomaly_checkpoint))
+            anomaly_image_size = int(anomaly_ck.get("image_size", image_size))
+            anomaly_x = image_transform(anomaly_image_size)(image).unsqueeze(0).to(device)
+            anomaly_threshold = anomaly_ck.get("threshold")
             with torch.no_grad():
-                rec = ae(ae_x)
-                target = denormalize_imagenet(ae_x)
+                output = anomaly_model(anomaly_x)
+                rec = output[0] if isinstance(output, tuple) else output
+                target = denormalize_imagenet(anomaly_x)
                 score = torch.mean((rec - target) ** 2).item()
             c1, c2 = st.columns(2)
             c1.metric("Erreur de reconstruction", f"{score:.6f}")
             if anomaly_threshold is not None:
                 c2.metric("Seuil appris", f"{float(anomaly_threshold):.6f}")
-                st.caption(f"Autoencoder : {ae_ck.get('dataset', 'OpenI')}")
+                anomaly_name = "VAE" if anomaly_ck.get("model_type") == "vae" else "Autoencoder"
+                st.caption(f"{anomaly_name} : {anomaly_ck.get('dataset', 'OpenI')}")
                 st.write("Décision :", "Atypique" if score > float(anomaly_threshold) else "Non atypique")
 
         st.subheader("Fusion image + texte")

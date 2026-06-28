@@ -1,4 +1,7 @@
 # Rapport final - Systeme d'aide au tri radiologique
+MADOUNGOU Colombe
+AMINI Gloria
+TA Khan Vy
 
 ## 1. Problème
 
@@ -92,9 +95,11 @@ Pour chaque modèle :
 
 Modèle :
 - autoencoder convolutionnel ;
+- VAE convolutionnel avec espace latent probabiliste ;
 - encodeur / décodeur ;
-- reconstruction en espace image dénormalisé.
-- apprentissage sur les images ChestMNIST sans pathologie uniquement.
+- reconstruction en espace image dénormalisé ;
+- apprentissage sur les images ChestMNIST sans pathologie uniquement ;
+- régularisation KL pour le VAE.
 
 Score :
 - erreur MSE moyenne entre image originale et reconstruction ;
@@ -103,6 +108,7 @@ Score :
 
 À inclure :
 - figure original / reconstruction / carte d'erreur ;
+- comparaison AE vs VAE : seuil, AUC, average precision, F1, précision, rappel ;
 - exemples avec fort score ;
 - limites : score non spécifique, pas de garantie clinique.
 
